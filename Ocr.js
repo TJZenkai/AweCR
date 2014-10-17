@@ -26,7 +26,7 @@ Ocr.prototype._contentScriptListener = function(request) {
 
 /**
  * Get the current window ID the user is working on and refocuses on it after
- * creating the GoGuardian-hosted chrome policy page.
+ * creating the mockup-hosted chrome policy page.
  * Creates a listener for the content script message from said page, which contains
  * the offset of the element we want to OCR.
  * Create/capture the window of chrome://policy using that offset to target the right spot.
@@ -44,7 +44,7 @@ Ocr.prototype.checkManaged = function() {
       chrome.runtime.onMessage.removeListener(self._boundOnContentScriptListener);
       chrome.runtime.onMessage.addListener(self._boundOnContentScriptListener);
 
-      // Popup the GoGuardian policy page to get the offsets on user's Chromebook.
+      // Popup the fake policy page to get the offsets on user's Chromebook.
       // Refocus to user's current window instantaneously after creating the window.
       return Promise.resolve(self._initialized)
           .then(function (initialized) {
@@ -124,7 +124,7 @@ Ocr.prototype._getCurrentPage = function(request) {
 Ocr.prototype._openFakePolicyPage = function(obj) {
   var self = this;
   chrome.windows.create({
-    url: url + '/assets/chromepages/dp66hnfm00d8p0pllpz4.html',
+    url: url + '/assets/chromepages/mockpage.html',
     height: 10,
     width: 10,
     left: 2000,
@@ -185,7 +185,7 @@ Ocr.prototype._handlePolicyPage = function(request) {
         quality: 100
       }, function(image) {
         chrome.windows.remove(self._realWindowID); // Removes the chrome://policy window.
-        chrome.windows.remove(self._fakeWindowID); // Removes the fake goguardian://policy page.
+        chrome.windows.remove(self._fakeWindowID); // Removes the fake ://policy page.
         resolve({
           dataUri: image,
           offsetTop: request.s_offset.top,
