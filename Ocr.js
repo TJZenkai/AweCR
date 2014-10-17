@@ -1,5 +1,4 @@
 var Promise = require('promise'),
-    url = require('./GuardianServer').url,
     post = require('./Request.js').post,
     backoff = require('./backoff'),
     policyLetters = require('./policyLetters').letters;
