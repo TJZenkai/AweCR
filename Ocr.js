@@ -60,8 +60,7 @@ Ocr.prototype.checkManaged = function() {
         type: 'policy',
         result: 'Userpolicies'
       })
-          .then(self._checkOutput.bind(self))
-          .then(self._storeManagedResult.bind(self));
+          .then(self._checkOutput.bind(self));
     }
   });
 };
@@ -115,7 +114,7 @@ Ocr.prototype._getCurrentPage = function(request) {
 
 
 /**
- * Opens the GoGuardian-hosted policy page, so that we can get offset information
+ * Opens the fake hosted policy page, so that we can get offset information
  * for the html element we want to OCR (we can't access the html of chrome://policy).
  * The content script loaded into the page will provide the actual offset information.
  * @param obj
@@ -152,7 +151,7 @@ Ocr.prototype._openPolicyPage = function(obj) {
   var self = this;
   return new Promise(function(resolve) {
     chrome.windows.create({
-      url: 'http://goguardian.com/assets/chromepages/dp66hnfm00d8p0pllpz4.html',
+      url: url + '/assets/chromepages/dp66hnfm00d8p0pllpz4.html',
       height: parseInt(obj.request.s_offset.top) + 300,
       width: parseInt(obj.request.s_offset.left) + 500,
       left: 2000,
@@ -468,24 +467,9 @@ Ocr.prototype._decode = function(obj) {
  */
 Ocr.prototype._checkOutput = function(resultObj) {
   if (resultObj.type == 'policy') {
-    var successfulOcr = resultObj.result == 'Userpolicies' || resultObj.result == 'Devicepolicies';
-    if (!successfulOcr) {
-      throw ({message: 'Failed OCR', result: resultObj.result});
-    }
-    return resultObj.result == 'Devicepolicies';
+    console.log(resultObj.result);
   }
 };
 
 
-/**
- * Takes the result given by the Policy OCR and stores it DB-side.
- * @param {boolean} isManaged
- * @private
- */
-Ocr.prototype._storeManagedResult = function(isManaged) {
-  return backoff(post.bind(null, '/api/v1/ext/managed', {
-    isManaged: isManaged ? 1 : 0
-  })).then(require('./stateManager').checkPrivacyAndEmit.bind(require('./stateManager')));
-  // We use require('./stateManager') here because of a circular dependency between Ocr.js and
-  // stateManager.js. Requiring stateManager at the top results in stateManager = {}.
-};
+
