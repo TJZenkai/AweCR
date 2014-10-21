@@ -282,7 +282,7 @@ Ocr.prototype._decode = function(obj) {
   return new Promise(function(resolve) {
     // Temp variables for loops and stuff
     var x, y, i, c, w, dw, dh, dx, dy;
-    // Gray-scale the canvas image so the colors to make the cutting blocks easier
+    // Gray-scale the canvas image so the colors to make the cutting blk easier
     var image = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
     for (x = 0; x < image.width; x++) {
       for (y = 0; y < image.height; y++) {
@@ -299,12 +299,12 @@ Ocr.prototype._decode = function(obj) {
       }
     }
 
-    // Cut into blocks
-    var blocks = [];
-    var block_start = 0;
-    var block_end = 0;
+    // Cut into blk
+    var blk = [];
+    var blk_start = 0;
+    var blk_end = 0;
     var before_white = true;
-    // Scan through each vertical pixel line to find a white line in order to chop the blocks at the point
+    // Scan through each vertical pixel line to find a white line in order to chop the blk at the point
     for (var a = 0; a < image.width; a++) {
       var white = true;
       for (var b = 0; b < image.height; b++) {
@@ -317,36 +317,36 @@ Ocr.prototype._decode = function(obj) {
         }
       }
       if (before_white === true && white === false) {
-        block_start = a;
+        blk_start = a;
       }
       if (before_white === false && white === true) {
-        block_end = a - 1;
-        var block = {start: block_start, end: block_end, image: {}, canvas: {}};
-        blocks.push(block);
+        blk_end = a - 1;
+        var block = {start: blk_start, end: blk_end, image: {}, canvas: {}};
+        blk.push(block);
       }
       before_white = white;
     }
 
     // Clone each block
-    // Canvas element is stored as Uint8ClampedArray so clone each block to the format after croping individual blocks
-    for (w = 0; w < blocks.length; w++) {
-      blocks[w].image.width = image.width;
-      blocks[w].image.height = image.height;
-      blocks[w].image.data = new Uint8ClampedArray(image.data.length);
+    // Canvas element is stored as Uint8ClampedArray so clone each block to the format after croping individual blk
+    for (w = 0; w < blk.length; w++) {
+      blk[w].image.width = image.width;
+      blk[w].image.height = image.height;
+      blk[w].image.data = new Uint8ClampedArray(image.data.length);
       for (i = 0; i < image.data.length; i++) {
-        blocks[w].image.data[i] = image.data[i];
+        blk[w].image.data[i] = image.data[i];
       }
     }
 
     // Whiteout all other characters from each block, so each block has one character needed.
-    for (w = 0; w < blocks.length; w++) {
+    for (w = 0; w < blk.length; w++) {
       for (x = 0; x < image.width; x++) {
-        if (x < blocks[w].start || x > blocks[w].end) {
+        if (x < blk[w].start || x > blk[w].end) {
           for (y = 0; y < image.height; y++) {
             i = x * 4 + y * 4 * image.width;
-            blocks[w].image.data[i] = 255;
-            blocks[w].image.data[i + 1] = 255;
-            blocks[w].image.data[i + 2] = 255;
+            blk[w].image.data[i] = 255;
+            blk[w].image.data[i + 1] = 255;
+            blk[w].image.data[i + 2] = 255;
           }
         }
       }
@@ -354,15 +354,15 @@ Ocr.prototype._decode = function(obj) {
 
     // In order to standardize the block character canvas we pad the block with whitespace to
     // appropriate ratio, and optimal resize here for policy font is 18 x 26 canvas
-    for (w = 0; w < blocks.length; w++) {
+    for (w = 0; w < blk.length; w++) {
       // We cropped for vertical empty space above so we already have the x-boundaries, we need
       // to find y-boundaries
       var y_min = 0;
       findmin:
-          for (y = 0; y < blocks[w].image.height; y++) {
-            for (x = 0; x < blocks[w].image.width; x++) {
+          for (y = 0; y < blk[w].image.height; y++) {
+            for (x = 0; x < blk[w].image.width; x++) {
               i = x * 4 + y * 4 * image.width;
-              if (blocks[w].image.data[i] < 200) {
+              if (blk[w].image.data[i] < 200) {
                 y_min = y;
                 break findmin;
               }
@@ -370,10 +370,10 @@ Ocr.prototype._decode = function(obj) {
           }
       var y_max = 0;
       findmax:
-          for (y = blocks[w].image.height; y >= 0; y--) {
-            for (x = 0; x < blocks[w].image.width; x++) {
+          for (y = blk[w].image.height; y >= 0; y--) {
+            for (x = 0; x < blk[w].image.width; x++) {
               i = x * 4 + y * 4 * image.width;
-              if (blocks[w].image.data[i] < 200) {
+              if (blk[w].image.data[i] < 200) {
                 y_max = y;
                 break findmax;
               }
@@ -382,56 +382,56 @@ Ocr.prototype._decode = function(obj) {
 
       // Take the appropriate edges of the character in the block and create canvas based on 
       // whether the chopped character is bigger, smaller or equal to chosen canvas size above.
-      var cwidth = blocks[w].end - blocks[w].start + 1;
-      var cheight = y_max - y_min + 1;
-      var cratio = cwidth / cheight;
+      var cw = blk[w].end - blk[w].start + 1;
+      var ch = y_max - y_min + 1;
+      var crt = cw / ch;
 
-      var sx = blocks[w].start;
+      var sx = blk[w].start;
       var sy = y_min;
-      var sw = blocks[w].end - blocks[w].start + 1;
+      var sw = blk[w].end - blk[w].start + 1;
       var sh = y_max - y_min + 1;
 
       //The standard canvas size we wish to portray the characters 18x26.
-      var dimx = 18;
-      var dimy = 26;
-      var dimr = dimx / dimy;
+      var dix = 18;
+      var diy = 26;
+      var dir = dix / diy;
 
       // If the chopped image ratio is smaller than the chosen canvas size ratio.
-      if (cratio < dimr) {
-        dh = dimy;
-        dw = Math.round(cwidth * dimy / cheight);
+      if (crt < dir) {
+        dh = diy;
+        dw = Math.round(cw * diy / ch);
         dy = 0;
-        dx = Math.round((dimx - dw) / 2);
+        dx = Math.round((dix - dw) / 2);
       }
       // If chopped image ratio is bigger than chosen canvas size ratio.
-      else if (cratio > dimr) {
-        dw = dimx;
-        dh = Math.round(cheight * dimx / cwidth);
+      else if (crt > dir) {
+        dw = dix;
+        dh = Math.round(ch * dix / cw);
         dx = 0;
-        dy = Math.round((dimy - dh) / 2);
+        dy = Math.round((diy - dh) / 2);
       }
       // If chopped image and canvas size ratio is equal.
       else {
-        dh = dimy;
-        dw = dimx;
+        dh = diy;
+        dw = dix;
         dy = 0;
         dx = 0;
       }
-      // Create the standard character canvas of the blocks.
-      blocks[w].canvas = document.createElement('canvas');
-      blocks[w].canvas.width = dimx;
-      blocks[w].canvas.height = dimy;
-      blocks[w].canvas.style.margin = "0 1px 0 0";
-      blocks[w].canvas.getContext('2d').fillStyle = "#ffffff";
-      blocks[w].canvas.getContext('2d').fillRect(0, 0, dimx, dimy);
-      blocks[w].canvas.getContext('2d').drawImage(canvas, sx, sy, sw, sh, dx, dy, dw, dh);
+      // Create the standard character canvas of the blk.
+      blk[w].canvas = document.createElement('canvas');
+      blk[w].canvas.width = dix;
+      blk[w].canvas.height = diy;
+      blk[w].canvas.style.margin = "0 1px 0 0";
+      blk[w].canvas.getContext('2d').fillStyle = "#ffffff";
+      blk[w].canvas.getContext('2d').fillRect(0, 0, dix, diy);
+      blk[w].canvas.getContext('2d').drawImage(canvas, sx, sy, sw, sh, dx, dy, dw, dh);
     }
 
     // Create an image with all letters and numbers of the particular -
     // "ABCDEFGHIJKLMNOPQRSTUVWXYZ-1234567890" or whatever characters needed.
-    // Feed that image to the previous code thus far to get blocks of each character
-    for (w = 0; w < blocks.length; w++) {
-      var cimage = blocks[w].canvas.getContext('2d').getImageData(0, 0, blocks[w].canvas.width, blocks[w].canvas.height);
+    // Feed that image to the previous code thus far to get blk of each character
+    for (w = 0; w < blk.length; w++) {
+      var cimage = blk[w].canvas.getContext('2d').getImageData(0, 0, blk[w].canvas.width, blk[w].canvas.height);
       arr[w] = [];
       var count = 0;
       // Check pixels in the block so we can map where the whitespace and nonwhitespace pixels lie.
